@@ -7,12 +7,13 @@ case class Store(i: Int, tpe: Tpe) extends Command
 case class Load(i: Int, tpe: Tpe) extends Command
 case class NConst(x: Long) extends Command
 case class SConst(x: String) extends Command
+case class Call(mname: String) extends Command
 case class Print(valIndex: Int, tpe: Tpe) extends Command
 case class Method(
     name: String,
     args: List[String],
     body: List[Command],
-    ret: String
+    ret: Tpe
     // isStatic: Boolean # every true
 )
 case class Clazz(pkg: String, name: String, methods: List[Method])
@@ -20,6 +21,7 @@ case class Clazz(pkg: String, name: String, methods: List[Method])
 sealed trait Tpe
 //case object I extends Tpe // Int
 case object L extends Tpe // Long
+case object Void extends Tpe // Long
 // case object B extends Tpe // Byte
 // case object F extends Tpe // Fload
 // case object D extends Tpe // Double

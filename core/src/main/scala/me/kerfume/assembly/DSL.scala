@@ -6,12 +6,14 @@ object DSL {
   def const(s: String): Command = SConst(s)
   def addN: Command = RawCommand("ladd", Nil)
   def store(i: Int, tpe: Tpe): Command = Store(i, tpe)
+  def load(i: Int, tpe: Tpe): Command = Load(i, tpe)
   def printN(valIndex: Int): Command = Print(valIndex, L)
   def printS(valIndex: Int): Command = Print(valIndex, ref(Tpe.String))
   def printO(valIndex: Int): Command = Print(valIndex, ref("undefined"))
+  def call(mname: String): Command = Call(mname)
 
   // method
-  def defm(name: String)(args: String*)(ret: String)(body: Command*): Method =
+  def defm(name: String)(args: String*)(ret: Tpe)(body: Command*): Method =
     Method(name, args.toList, body.toList, ret)
 
   // class
@@ -23,13 +25,14 @@ object Test {
   import DSL._
   def run(): Unit = {
     val clazz = defc("com.example", "Example")(
-      defm("main")("[Ljava/lang/String;")("V")(
+      BuildIn.plus,
+      defm("main")("[Ljava/lang/String;")(Void)(
         const("aa"),
         store(1, ref(Tpe.String)),
         printS(1),
         const(3),
         const(4),
-        addN,
+        call("plus(JJ)J"),
         store(1, L),
         printN(1)
       )
