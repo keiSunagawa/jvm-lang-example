@@ -49,3 +49,5 @@ erl_crash.dump
 *.beam
 config/*.secret.exs
 *_user_values.yaml
+
+*.class
