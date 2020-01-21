@@ -20,7 +20,8 @@ object Base {
       "-Ywarn-unused:-implicits",
       "-language:higherKinds",
       "-Ypatmat-exhaust-depth",
-      "off"
+      "off",
+      "-Yimports:java.lang,scala,scala.Predef,cats.syntax.functor,cats.syntax.traverse,cats.instances.list"
     )
 
   lazy val settings = Seq(

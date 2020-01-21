@@ -21,9 +21,9 @@ object Main extends App {
     val walker = new ParseTreeWalker();
     /* Implement listener and use parser */
     walker.walk(converter, parser.stmts);
-    converter.stmts
+    converter.stmts.reverse
   }
 
-  val res = parse(""" (a 1 "x")(f 1 2)""")
+  val res = parse(""" (a 1 "x")(f 1 (1 (2 4)))""")
   println(res)
 }

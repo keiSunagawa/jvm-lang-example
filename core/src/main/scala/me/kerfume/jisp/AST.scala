@@ -8,7 +8,10 @@ case class Num(value: Long) extends Value
 case class Str(value: String) extends Value
 case class Symbol(value: String) extends Value
 
-case class JList(values: List[Value])
+case class JList(values: List[Value]) extends Value {
+  def add(v: Value): JList = copy(values = values :+ v)
+  def isEmpty: Boolean = values.isEmpty
+}
 
 // create by function collector
 case class Defun(name: String, args: List[Symbol], body: JList)
