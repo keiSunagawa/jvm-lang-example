@@ -14,4 +14,7 @@ case class JList(values: List[Value]) extends Value {
 }
 
 // create by function collector
-case class Defun(name: String, args: List[Symbol], body: JList)
+case class Defun(name: Symbol, args: List[Symbol], body: JList)
+
+// create by let collector
+case class Let(name: Symbol, body: JList)

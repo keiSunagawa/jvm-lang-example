@@ -85,7 +85,37 @@ object RuleChecker {
     xs.traverse(check).void
   }
 
+  // allowed let in top level list
+  def checkLetSymbol(
+      xs: List[JList]
+  ): ValidatedNec[InvalidLetSymbol, Unit] = {
+    val letSym = "let"
+    def nonDefum(ys: JList): ValidatedNec[InvalidLetSymbol, Unit] = {
+      ys.values.traverse {
+        case Symbol(sym) if sym == letSym =>
+          InvalidLetSymbol().invalidNec
+        case nest: JList => nonDefum(nest)
+        case _           => valid
+      }.void
+    }
+    def check(x: JList): ValidatedNec[InvalidLetSymbol, Unit] = {
+      if (x.values.isEmpty) ().validNec
+      else {
+        x.values
+          .collect {
+            case nest: JList => nonDefum(nest)
+          }
+          .sequence
+          .void
+      }
+    }
+
+    // TODO check (x let y) <- invalid code. and defun
+    xs.traverse(check).void
+  }
+
   case class InvalidListHead(invalidValue: Value)
   case class InvalidMetaSymbol(invalidSymbol: Symbol)
   case class InvalidDefunSymbol()
+  case class InvalidLetSymbol()
 }
