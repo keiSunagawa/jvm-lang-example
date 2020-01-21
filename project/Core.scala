@@ -8,6 +8,6 @@ object Core {
     .settings(
       name := "jisp-core",
       scalacOptions ++= Base.commonScalaOptions,
-      libraryDependencies ++= Base.commonLibs
+      libraryDependencies ++= Base.commonLibs ++ antlr
     )
 }
