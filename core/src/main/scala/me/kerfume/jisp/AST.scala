@@ -14,7 +14,15 @@ case class JList(values: List[Value]) extends Value {
 }
 
 // create by function collector
-case class Defun(name: Symbol, args: List[Symbol], body: JList)
+case class FArg(sym: Symbol, tpe: JispType)
+case class Defun(name: Symbol, args: List[FArg], body: JList)
 
 // create by let collector
 case class Let(name: Symbol, body: JList)
+
+sealed trait JispType
+object JispType {
+  case object Number extends JispType
+  case object String extends JispType
+  case object WillInfer extends JispType
+}

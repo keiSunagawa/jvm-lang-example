@@ -7,6 +7,7 @@ import me.kerfume.jisp.antlr.JispParser
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import me.kerfume.jisp.RuleChecker
+import me.kerfume.jisp.DefunCollector
 
 object Main extends App {
 
@@ -25,10 +26,12 @@ object Main extends App {
     converter.stmts.reverse
   }
 
-  val res = parse(""" (a 1 "x")(defun 1 (t:int (let 4)))""")
+  val res = parse("""(a 1 "x")
+                    |(defun f ((t:num x) y) (plus x y)""".stripMargin)
   println(res)
   println(RuleChecker.checkListHead(res))
   println(RuleChecker.checkMetaSymbol(res))
   println(RuleChecker.checkDefunSymbol(res))
   println(RuleChecker.checkLetSymbol(res))
+  println(DefunCollector.collect(res))
 }
