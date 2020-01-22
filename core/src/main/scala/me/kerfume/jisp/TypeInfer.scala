@@ -13,6 +13,7 @@ class TypeInfer(val functionTypeMap: Map[String, JispType.FunctionType]) {
       variableTypeMap = variableTypeMap + (a.sym -> a.tpe)
     }
 
+    // TODO inferMainでも 使い回せる
     def applyCheck(exp: JList): Either[TypeMisMatch, JispType] = {
       exp.values match {
         case Nil => JispType.Void.asRight
@@ -56,6 +57,7 @@ class TypeInfer(val functionTypeMap: Map[String, JispType.FunctionType]) {
     }
   }
   def inferMain(body: List[JList]): JispType.FunctionType = {
+    // TODO applyCheckに対してmapするだけ？letへの対応も必要
     ???
   }
 

@@ -7,6 +7,7 @@ import cats.syntax.semigroup._
 object RuleChecker {
   def valid[L] = List(()).validNec[L]
   // list head is allowed only symbol or list
+  // TODO headがSymbolに固定された型に変換してもよい?
   def checkListHead(xs: List[JList]): ValidatedNec[InvalidListHead, Unit] = {
     def check(x: JList): ValidatedNec[InvalidListHead, Unit] = {
       if (x.values.isEmpty) ().validNec
