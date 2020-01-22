@@ -25,4 +25,7 @@ object JispType {
   case object Number extends JispType
   case object String extends JispType
   case object WillInfer extends JispType
+  case object Void extends JispType
+
+  case class FunctionType(argsType: List[JispType], retType: JispType)
 }

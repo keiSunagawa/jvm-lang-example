@@ -8,6 +8,8 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import me.kerfume.jisp.RuleChecker
 import me.kerfume.jisp.DefunCollector
+import me.kerfume.jisp.TypeInfer
+import me.kerfume.jisp.JispType
 
 object Main extends App {
 
@@ -27,11 +29,21 @@ object Main extends App {
   }
 
   val res = parse("""(a 1 "x")
-                    |(defun f ((t:num x) y) (plus x y)""".stripMargin)
+                    |(defun f ((t:num x) (t:num y))
+                    |  (plus x (plus 1 y)))
+                    """.stripMargin)
   println(res)
   println(RuleChecker.checkListHead(res))
   println(RuleChecker.checkMetaSymbol(res))
   println(RuleChecker.checkDefunSymbol(res))
   println(RuleChecker.checkLetSymbol(res))
   println(DefunCollector.collect(res))
+  val (_, defs) = DefunCollector.collect(res).right.get
+
+  val plus = JispType.FunctionType(
+    JispType.Number :: JispType.Number :: Nil,
+    JispType.Number
+  )
+  val ti = new TypeInfer(Map("plus" -> plus))
+  println(ti.infer(defs.head))
 }
