@@ -18,7 +18,9 @@ case class FArg(sym: Symbol, tpe: JispType)
 case class Defun(name: Symbol, args: List[FArg], body: JList)
 
 // create by let collector
-case class Let(name: Symbol, body: JList)
+sealed trait Statement
+case class Apply(body: JList) extends Statement
+case class Let(name: Symbol, body: JList) extends Statement
 
 sealed trait JispType
 object JispType {

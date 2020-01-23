@@ -10,6 +10,7 @@ import me.kerfume.jisp.RuleChecker
 import me.kerfume.jisp.DefunCollector
 import me.kerfume.jisp.TypeInfer
 import me.kerfume.jisp.JispType
+import me.kerfume.jisp.LetCollector
 
 object Main extends App {
 
@@ -28,9 +29,10 @@ object Main extends App {
     converter.stmts.reverse
   }
 
-  val res = parse("""(a 1 "x")
-                    |(defun f ((t:num x) (t:num y))
-                    |  (plus x (plus 1 y)))
+  val res = parse("""(defun f ((t:num x) (t:num y))
+                    |   (plus x (plus 1 y)))
+                    |(let z (f 1 3))
+                    |(prinln z)
                     """.stripMargin)
   println(res)
   println(RuleChecker.checkListHead(res))
@@ -38,12 +40,15 @@ object Main extends App {
   println(RuleChecker.checkDefunSymbol(res))
   println(RuleChecker.checkLetSymbol(res))
   println(DefunCollector.collect(res))
-  val (_, defs) = DefunCollector.collect(res).right.get
+  val (ss, defs) = DefunCollector.collect(res).right.get
 
   val plus = JispType.FunctionType(
     JispType.Number :: JispType.Number :: Nil,
     JispType.Number
   )
+  val stmts = LetCollector.collect(ss)
+  println(stmts)
+
   val ti = new TypeInfer(Map("plus" -> plus))
   println(ti.infer(defs.head))
 }
