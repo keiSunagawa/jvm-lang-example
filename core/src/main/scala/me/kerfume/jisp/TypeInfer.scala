@@ -6,12 +6,6 @@ import me.kerfume.jisp.JispType.WillInfer
 import cats.data.StateT
 
 object TypeInfer {
-  type WithVMapT[A] = StateT[
-    ({ type T[X] = Either[TypeMisMatch, X] })#T,
-    Map[Symbol, JispType],
-    A
-  ]
-
   def applyCheckS(
       exp: JList,
       functionTypeMap: Map[String, JispType.FunctionType]
@@ -47,11 +41,8 @@ object TypeInfer {
     }
     def typeCheck(p: TypeInfo, a: JispType): WithVMapT[Unit] = {
       p match {
-        case Constant(t) if t == a => StateT.pure { () }
-        case Variable(sym, WillInfer) =>
-          StateT.modify { m =>
-            m + (sym -> a)
-          }
+        case Constant(t) if t == a    => StateT.pure { () }
+        case Variable(sym, WillInfer) => put(sym, a)
         case Variable(_, t) if t == a => StateT.pure { () }
         case _                        => StateT.liftF { ArgsTypeMisMatch().asLeft }
       }
@@ -72,22 +63,17 @@ object TypeInfer {
       defun: Defun,
       functionTypeMap: Map[String, JispType.FunctionType]
   ): Either[TypeMisMatch, JispType.FunctionType] = {
-
-    def getArgType(arg: FArg): WithVMapT[Unit] = StateT.modify { m =>
-      m + (arg.sym -> arg.tpe)
-    }
-
     (for {
       // initialize
-      _ <- defun.args.traverse(getArgType)
+      _ <- defun.args.traverse(a => put(a.sym, a.tpe))
       retType <- applyCheckS(defun.body, functionTypeMap)
       ft <- StateT.inspect { m =>
         val argsTypes = defun.args.map(fa => m(fa.sym))
         JispType.FunctionType(argsTypes, retType)
       }: WithVMapT[JispType.FunctionType]
     } yield ft).runA(Map.empty)
-
   }
+
   def inferMain(
       body: List[Statement],
       functionTypeMap: Map[String, JispType.FunctionType]
@@ -99,11 +85,20 @@ object TypeInfer {
         case Let(name, b) =>
           for {
             t <- applyCheckS(b, functionTypeMap)
-            _ <- StateT.modify(m => m + (name -> t)): WithVMapT[Unit]
+            _ <- put(name, t)
           } yield ()
       }
       .runS(Map.empty)
   }
+
+  type WithVMapT[A] = StateT[
+    ({ type T[X] = Either[TypeMisMatch, X] })#T,
+    Map[Symbol, JispType],
+    A
+  ]
+
+  private def put(name: Symbol, tpe: JispType): WithVMapT[Unit] =
+    StateT.modify(m => m + (name -> tpe))
 
   sealed trait TypeMisMatch
   case class ToManyArgs() extends TypeMisMatch
