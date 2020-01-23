@@ -121,8 +121,8 @@ object Compiler {
     case _               => ???
   }
   private def fNameConv(name: String, ftype: JispType.FunctionType): String = {
-    val argTypes = ftype.argsType.map(typeConv).mkString
-    val retType = typeConv(ftype.retType)
+    val argTypes = ftype.argsType.map(typeConvStr).mkString
+    val retType = typeConvStr(ftype.retType)
     s"JispCode/${name}(${argTypes})$retType"
   }
 }

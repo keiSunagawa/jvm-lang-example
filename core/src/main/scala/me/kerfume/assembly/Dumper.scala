@@ -24,7 +24,7 @@ object Dumper {
   private val idt = " " * 4
   def dump(clazz: Clazz): String = {
     val res = for {
-      _ <- tell(s".class public ${clazz.pkg}.${clazz.name}")
+      _ <- tell(s".class public ${clazz.name}") // pkg disabled
       _ <- tell(".super java/lang/Object")
       _ <- tell(s""".method public <init>()V
                     |${idt}aload_0
@@ -62,7 +62,7 @@ object Dumper {
       case RawCommand(n, os) => tell(s"${n} ${os.mkString(" ")}")
       case Call(m) =>
         for {
-          _ <- tell(s"invokestatic com/example/Example/${m}")
+          _ <- tell(s"invokestatic ${m}")
         } yield ()
       case Print(vi, tpe) =>
         for {

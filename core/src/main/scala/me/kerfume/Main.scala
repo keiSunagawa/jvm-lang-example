@@ -12,6 +12,8 @@ import me.kerfume.jisp.TypeInfer
 import me.kerfume.jisp.JispType
 import me.kerfume.jisp.LetCollector
 import cats.instances.either._
+import me.kerfume.assembly.BuildIn
+import me.kerfume.assembly.Dumper
 
 object Main extends App {
 
@@ -70,4 +72,13 @@ object Main extends App {
 
   val mainCs = me.kerfume.compiler.Compiler.compileMain(stmts, varMap, fMapFull)
   println(mainCs)
+
+  import me.kerfume.assembly._
+  val ms = asmFs :+ BuildIn.plus :+ DSL.defm("main")("[Ljava/lang/String;")(
+    Void
+  )(
+    mainCs: _*
+  )
+  val czz = DSL.defc("", "JispCode")(ms: _*)
+  println(Dumper.dump(czz))
 }
