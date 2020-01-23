@@ -32,7 +32,7 @@ object Main extends App {
 
   val res = parse("""(defun f ((t:num x) (t:num y))
                     |   (plus x (plus 1 y)))
-                    |(let z (f 1 3))
+                    |(let z (f 1 2))
                     |(f z 1)
                     """.stripMargin)
   println(res)
@@ -67,4 +67,7 @@ object Main extends App {
 
   val asmFs = me.kerfume.compiler.Compiler.compile(defs, fMapFull)
   println(asmFs)
+
+  val mainCs = me.kerfume.compiler.Compiler.compileMain(stmts, varMap, fMapFull)
+  println(mainCs)
 }

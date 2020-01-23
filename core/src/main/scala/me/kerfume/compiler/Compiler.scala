@@ -61,6 +61,55 @@ object Compiler {
     tCommands :+ hCommand
   }
 
+  def compileMain(
+      stmts: List[Statement],
+      tpeMap: Map[Symbol, JispType],
+      typeMap: Map[String, JispType.FunctionType]
+  ): List[Command] = {
+    import me.kerfume.assembly.DSL._
+
+    val varWithOffset = tpeMap.toList
+      .traverse {
+        case (sym, t) =>
+          State { ofs: Int =>
+            val addOfs = if (t == JispType.Number) 2 else 1
+            (ofs + addOfs) -> (sym -> (ofs -> t))
+          }
+      }
+      .map(_.toMap)
+      .runA(0)
+      .value
+//    var offset_ = offset
+
+    def applyCompile(ap: JList): List[Command] = {
+      val h :: t = ap.values
+      val tCommands = t.flatMap {
+        case Num(n) => const(n) :: Nil
+        case Str(s) => const(s) :: Nil
+        case s: Symbol =>
+          val (ofs, t) = varWithOffset(s)
+          load(ofs, typeConv(t)) :: Nil
+        case xs: JList => applyCompile(xs)
+      }
+      val fName = h.asInstanceOf[Symbol].value
+      val hCommand = call(fNameConv(fName, typeMap(fName)))
+      tCommands :+ hCommand
+    }
+
+    def letCompile(let: Let): List[Command] = {
+      val bodyCs = applyCompile(let.body)
+      val bindCs = {
+        val (ofs, t) = varWithOffset(let.name)
+        store(ofs, typeConv(t))
+      }
+      bodyCs :+ bindCs
+    }
+    stmts.flatMap {
+      case let: Let  => letCompile(let)
+      case ap: Apply => applyCompile(ap.body)
+    }
+  }
+
   private def typeConvStr(jt: JispType): String = jt match {
     case JispType.Number => "J"
     case JispType.String => "Ljava/lang/String;"
