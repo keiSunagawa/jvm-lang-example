@@ -88,9 +88,21 @@ object TypeInfer {
     } yield ft).runA(Map.empty)
 
   }
-  def inferMain(body: List[JList]): JispType.FunctionType = {
+  def inferMain(
+      body: List[Statement],
+      functionTypeMap: Map[String, JispType.FunctionType]
+  ): Either[TypeMisMatch, Map[Symbol, JispType]] = {
     // TODO applyCheckに対してmapするだけ？letへの対応も必要
-    ???
+    body
+      .traverse {
+        case Apply(b) => applyCheckS(b, functionTypeMap).void
+        case Let(name, b) =>
+          for {
+            t <- applyCheckS(b, functionTypeMap)
+            _ <- StateT.modify(m => m + (name -> t)): WithVMapT[Unit]
+          } yield ()
+      }
+      .runS(Map.empty)
   }
 
   sealed trait TypeMisMatch

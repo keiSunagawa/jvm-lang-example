@@ -11,6 +11,7 @@ import me.kerfume.jisp.DefunCollector
 import me.kerfume.jisp.TypeInfer
 import me.kerfume.jisp.JispType
 import me.kerfume.jisp.LetCollector
+import cats.instances.either._
 
 object Main extends App {
 
@@ -32,7 +33,7 @@ object Main extends App {
   val res = parse("""(defun f ((t:num x) (t:num y))
                     |   (plus x (plus 1 y)))
                     |(let z (f 1 3))
-                    |(prinln z)
+                    |(f z 1)
                     """.stripMargin)
   println(res)
   println(RuleChecker.checkListHead(res))
@@ -46,8 +47,17 @@ object Main extends App {
     JispType.Number :: JispType.Number :: Nil,
     JispType.Number
   )
-  val stmts = LetCollector.collect(ss)
+  val stmts = LetCollector.collect(ss).toOption.get
   println(stmts)
 
-  println(TypeInfer.infer(defs.head, Map("plus" -> plus)))
+  val fMap = defs
+    .traverse { d =>
+      TypeInfer.infer(d, Map("plus" -> plus)).map { d.name.value -> _ }
+    }
+    .toOption
+    .get
+
+  println(fMap)
+
+  println(TypeInfer.inferMain(stmts, fMap.toMap))
 }
