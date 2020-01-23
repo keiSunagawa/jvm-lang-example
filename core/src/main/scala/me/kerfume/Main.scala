@@ -49,6 +49,5 @@ object Main extends App {
   val stmts = LetCollector.collect(ss)
   println(stmts)
 
-  val ti = new TypeInfer(Map("plus" -> plus))
-  println(ti.infer(defs.head))
+  println(TypeInfer.infer(defs.head, Map("plus" -> plus)))
 }
