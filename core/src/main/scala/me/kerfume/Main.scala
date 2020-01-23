@@ -50,14 +50,21 @@ object Main extends App {
   val stmts = LetCollector.collect(ss).toOption.get
   println(stmts)
 
+  val buildInF = Map("plus" -> plus)
   val fMap = defs
     .traverse { d =>
-      TypeInfer.infer(d, Map("plus" -> plus)).map { d.name.value -> _ }
+      TypeInfer.infer(d, buildInF).map { d.name.value -> _ }
     }
     .toOption
     .get
 
   println(fMap)
 
-  println(TypeInfer.inferMain(stmts, fMap.toMap))
+  val fMapFull = buildInF ++ fMap.toMap
+  val varMap = TypeInfer.inferMain(stmts, fMapFull).toOption.get
+
+  println(varMap)
+
+  val asmFs = me.kerfume.compiler.Compiler.compile(defs, fMapFull)
+  println(asmFs)
 }
