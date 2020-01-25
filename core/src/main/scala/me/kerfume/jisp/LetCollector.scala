@@ -2,9 +2,13 @@ package me.kerfume.jisp
 
 import cats.syntax.either._
 import cats.instances.either._
+import org.atnos.eff.|=
 
 object LetCollector {
-  def collect(xs: List[JList]): Either[InvalidLetSyntax, List[Statement]] = {
+  type Result[A] = Either[Error, A]
+  type _result[R] = Result |= R
+
+  def collect(xs: List[JList]): Result[List[Statement]] = {
     def toLet(x: JList): Either[InvalidLetSyntax, Let] = x.values match {
       case _ :: (name: Symbol) :: (body: JList) :: Nil =>
         Let(name, body).asRight
@@ -16,5 +20,6 @@ object LetCollector {
     }
   }
 
-  case class InvalidLetSyntax()
+  sealed trait Error
+  case class InvalidLetSyntax() extends Error
 }

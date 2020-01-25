@@ -4,8 +4,12 @@ import cats.syntax.either._
 import cats.instances.either._
 import me.kerfume.jisp.JispType.WillInfer
 import cats.data.StateT
+import org.atnos.eff.|=
 
 object TypeInfer {
+  type Result[A] = Either[Error, A]
+  type _result[R] = Result |= R
+
   def applyCheckS(
       exp: JList,
       functionTypeMap: Map[String, JispType.FunctionType]
@@ -26,7 +30,7 @@ object TypeInfer {
     def getFunction(
         name: String,
         paramSize: Int
-    ): Either[TypeMisMatch, JispType.FunctionType] = {
+    ): Either[Error, JispType.FunctionType] = {
       for {
         f <- functionTypeMap
           .get(name)
@@ -62,7 +66,7 @@ object TypeInfer {
   def infer(
       defun: Defun,
       functionTypeMap: Map[String, JispType.FunctionType]
-  ): Either[TypeMisMatch, JispType.FunctionType] = {
+  ): Either[Error, JispType.FunctionType] = {
     (for {
       // initialize
       _ <- defun.args.traverse(a => put(a.sym, a.tpe))
@@ -77,7 +81,7 @@ object TypeInfer {
   def inferMain(
       body: List[Statement],
       functionTypeMap: Map[String, JispType.FunctionType]
-  ): Either[TypeMisMatch, Map[Symbol, JispType]] = {
+  ): Either[Error, Map[Symbol, JispType]] = {
     // TODO applyCheckに対してmapするだけ？letへの対応も必要
     body
       .traverse {
@@ -92,7 +96,7 @@ object TypeInfer {
   }
 
   type WithVMapT[A] = StateT[
-    ({ type T[X] = Either[TypeMisMatch, X] })#T,
+    ({ type T[X] = Either[Error, X] })#T,
     Map[Symbol, JispType],
     A
   ]
@@ -100,11 +104,11 @@ object TypeInfer {
   private def put(name: Symbol, tpe: JispType): WithVMapT[Unit] =
     StateT.modify(m => m + (name -> tpe))
 
-  sealed trait TypeMisMatch
-  case class ToManyArgs() extends TypeMisMatch
-  case class ArgsTypeMisMatch() extends TypeMisMatch
-  case class FunctionNotFound() extends TypeMisMatch
-  case class VaeiableNotFound() extends TypeMisMatch
+  sealed trait Error
+  case class ToManyArgs() extends Error
+  case class ArgsTypeMisMatch() extends Error
+  case class FunctionNotFound() extends Error
+  case class VaeiableNotFound() extends Error
 
   sealed trait TypeInfo
   case class Variable(sym: Symbol, tpe: JispType) extends TypeInfo

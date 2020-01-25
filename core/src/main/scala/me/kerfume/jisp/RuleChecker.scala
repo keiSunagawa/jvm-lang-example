@@ -1,16 +1,26 @@
 package me.kerfume.jisp
 
-import cats.data.ValidatedNec
+import cats.data.ValidatedNel
 import cats.syntax.validated._
 import cats.syntax.semigroup._
+import org.atnos.eff._
+import cats.data.NonEmptyList
 
 object RuleChecker {
-  def valid[L] = List(()).validNec[L]
+  type Error = NonEmptyList[RuleCheckerInvalid]
+  type Result[A] = Either[Error, A]
+  type _result[R] = Result |= R
+
+  type CheckerResult[A] = ValidatedNel[RuleCheckerInvalid, A]
+  def valid[L] = List(()).validNel[L]
+
   // list head is allowed only symbol or list
   // TODO headがSymbolに固定された型に変換してもよい?
-  def checkListHead(xs: List[JList]): ValidatedNec[InvalidListHead, Unit] = {
-    def check(x: JList): ValidatedNec[InvalidListHead, Unit] = {
-      if (x.values.isEmpty) ().validNec
+  def checkListHead(
+      xs: List[JList]
+  ): CheckerResult[Unit] = {
+    def check(x: JList): CheckerResult[Unit] = {
+      if (x.values.isEmpty) ().validNel
       else {
         val nestValidated = x.values.collect {
           case nest: JList => check(nest)
@@ -18,7 +28,7 @@ object RuleChecker {
         val headValidated = x.values.head match {
           case _: Symbol => valid
           case _: JList  => valid
-          case invalid   => InvalidListHead(invalid).invalidNec
+          case invalid   => InvalidListHead(invalid).invalidNel
         }
         (nestValidated |+| headValidated).void
       }
@@ -28,9 +38,9 @@ object RuleChecker {
   // allowed only `t:type`
   def checkMetaSymbol(
       xs: List[JList]
-  ): ValidatedNec[InvalidMetaSymbol, Unit] = {
-    def check(x: JList): ValidatedNec[InvalidMetaSymbol, Unit] = {
-      if (x.values.isEmpty) ().validNec
+  ): CheckerResult[Unit] = {
+    def check(x: JList): CheckerResult[Unit] = {
+      if (x.values.isEmpty) ().validNel
       else {
         val nestValidated = x.values.collect {
           case nest: JList => check(nest)
@@ -41,12 +51,12 @@ object RuleChecker {
               case Symbol(sym) if sym.contains(":") =>
                 val metaSymbol = sym.split(":").head
                 if (metaSymbol == "t") valid
-                else InvalidMetaSymbol(Symbol(sym)).invalidNec
+                else InvalidMetaSymbol(Symbol(sym)).invalidNel
               case _ => valid
             }
             val tv = t.traverse {
               case Symbol(sym) if sym.contains(":") =>
-                InvalidMetaSymbol(Symbol(sym)).invalidNec
+                InvalidMetaSymbol(Symbol(sym)).invalidNel
               case _ => ().valid
             }
             hv |+| tv
@@ -61,18 +71,18 @@ object RuleChecker {
   // allowed defun in top level list
   def checkDefunSymbol(
       xs: List[JList]
-  ): ValidatedNec[InvalidDefunSymbol, Unit] = {
+  ): CheckerResult[Unit] = {
     val defumSym = "defun"
-    def nonDefum(ys: JList): ValidatedNec[InvalidDefunSymbol, Unit] = {
+    def nonDefum(ys: JList): CheckerResult[Unit] = {
       ys.values.traverse {
         case Symbol(sym) if sym == defumSym =>
-          InvalidDefunSymbol().invalidNec
+          InvalidDefunSymbol().invalidNel
         case nest: JList => nonDefum(nest)
         case _           => valid
       }.void
     }
-    def check(x: JList): ValidatedNec[InvalidDefunSymbol, Unit] = {
-      if (x.values.isEmpty) ().validNec
+    def check(x: JList): CheckerResult[Unit] = {
+      if (x.values.isEmpty) ().validNel
       else {
         x.values
           .collect {
@@ -89,18 +99,18 @@ object RuleChecker {
   // allowed let in top level list
   def checkLetSymbol(
       xs: List[JList]
-  ): ValidatedNec[InvalidLetSymbol, Unit] = {
+  ): CheckerResult[Unit] = {
     val letSym = "let"
-    def nonDefum(ys: JList): ValidatedNec[InvalidLetSymbol, Unit] = {
+    def nonDefum(ys: JList): CheckerResult[Unit] = {
       ys.values.traverse {
         case Symbol(sym) if sym == letSym =>
-          InvalidLetSymbol().invalidNec
+          InvalidLetSymbol().invalidNel
         case nest: JList => nonDefum(nest)
         case _           => valid
       }.void
     }
-    def check(x: JList): ValidatedNec[InvalidLetSymbol, Unit] = {
-      if (x.values.isEmpty) ().validNec
+    def check(x: JList): CheckerResult[Unit] = {
+      if (x.values.isEmpty) ().validNel
       else {
         x.values
           .collect {
@@ -115,8 +125,9 @@ object RuleChecker {
     xs.traverse(check).void
   }
 
-  case class InvalidListHead(invalidValue: Value)
-  case class InvalidMetaSymbol(invalidSymbol: Symbol)
-  case class InvalidDefunSymbol()
-  case class InvalidLetSymbol()
+  sealed trait RuleCheckerInvalid
+  case class InvalidListHead(invalidValue: Value) extends RuleCheckerInvalid
+  case class InvalidMetaSymbol(invalidSymbol: Symbol) extends RuleCheckerInvalid
+  case class InvalidDefunSymbol() extends RuleCheckerInvalid
+  case class InvalidLetSymbol() extends RuleCheckerInvalid
 }

@@ -21,6 +21,9 @@ case class Defun(name: Symbol, args: List[FArg], body: JList)
 sealed trait Statement
 case class Apply(body: JList) extends Statement
 case class Let(name: Symbol, body: JList) extends Statement
+object Let {
+  val str = "let"
+}
 
 sealed trait JispType
 object JispType {

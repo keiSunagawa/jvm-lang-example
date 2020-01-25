@@ -11,7 +11,6 @@ import me.kerfume.jisp.DefunCollector
 import me.kerfume.jisp.TypeInfer
 import me.kerfume.jisp.JispType
 import me.kerfume.jisp.LetCollector
-import cats.instances.either._
 import me.kerfume.assembly.BuildIn
 import me.kerfume.assembly.Dumper
 
@@ -37,48 +36,85 @@ object Main extends App {
                     |(let z (f 1 2))
                     |(f z 1)
                     """.stripMargin)
-  println(res)
-  println(RuleChecker.checkListHead(res))
-  println(RuleChecker.checkMetaSymbol(res))
-  println(RuleChecker.checkDefunSymbol(res))
-  println(RuleChecker.checkLetSymbol(res))
-  println(DefunCollector.collect(res))
-  val (ss, defs) = DefunCollector.collect(res).right.get
+
+  import org.atnos.eff._
+  import org.atnos.eff.all._
+  import org.atnos.eff.syntax.all._
+  import cats.syntax.semigroupk._
+  import cats.instances.list._
+  import cats.instances.either._
 
   val plus = JispType.FunctionType(
     JispType.Number :: JispType.Number :: Nil,
     JispType.Number
   )
-  val stmts = LetCollector.collect(ss).toOption.get
-  println(stmts)
-
   val buildInF = Map("plus" -> plus)
-  val fMap = defs
-    .traverse { d =>
-      TypeInfer.infer(d, buildInF).map { d.name.value -> _ }
+
+  def x[
+      R: RuleChecker._result: DefunCollector._result: LetCollector._result: TypeInfer._result
+  ] =
+    for {
+      _ <- (RuleChecker.checkListHead(res) <+>
+        RuleChecker.checkMetaSymbol(res) <+>
+        RuleChecker.checkDefunSymbol(res) <+>
+        RuleChecker.checkLetSymbol(res)).toEither.send
+
+      collectRes <- (DefunCollector.collect(res)).send
+      (letOrApplies, defs) = collectRes
+      stmts <- LetCollector.collect(letOrApplies).send
+
+      fMap <- defs.traverse { d =>
+        TypeInfer.infer(d, buildInF).map { d.name.value -> _ }
+      }.send
+      fMapFull = buildInF ++ fMap.toMap
+      varMap <- TypeInfer.inferMain(stmts, fMapFull).send
+    } yield {
+      val asmFs = me.kerfume.compiler.Compiler.compile(defs, fMapFull)
+      val mainCs =
+        me.kerfume.compiler.Compiler.compileMain(stmts, varMap, fMapFull)
+      import me.kerfume.assembly._
+      val ms = asmFs :+ BuildIn.plus :+ DSL.defm("main")("[Ljava/lang/String;")(
+        Void
+      )(
+        mainCs: _*
+      )
+      val czz = DSL.defc("", "JispCode")(ms: _*)
+      Dumper.dump(czz)
     }
-    .toOption
-    .get
 
-  println(fMap)
+  def toOption[E, A, R: _option](eor: Either[E, A]): Eff[R, A] = eor match {
+    case Left(e) =>
+      println(e)
+      none
+    case Right(a) => some(a)
+  }
 
-  val fMapFull = buildInF ++ fMap.toMap
-  val varMap = TypeInfer.inferMain(stmts, fMapFull).toOption.get
+  type Stack = Fx.fx5[
+    RuleChecker.Result,
+    DefunCollector.Result,
+    LetCollector.Result,
+    TypeInfer.Result,
+    Option
+  ]
+  val y = x[Stack]
+    .runEither[RuleChecker.Error]
+    .flatMap {
+      toOption(_)
+    }
+    .runEither[DefunCollector.Error]
+    .flatMap {
+      toOption(_)
+    }
+    .runEither[LetCollector.Error]
+    .flatMap {
+      toOption(_)
+    }
+    .runEither[TypeInfer.Error]
+    .flatMap {
+      toOption(_)
+    }
+    .runOption
+    .run
 
-  println(varMap)
-
-  val asmFs = me.kerfume.compiler.Compiler.compile(defs, fMapFull)
-  println(asmFs)
-
-  val mainCs = me.kerfume.compiler.Compiler.compileMain(stmts, varMap, fMapFull)
-  println(mainCs)
-
-  import me.kerfume.assembly._
-  val ms = asmFs :+ BuildIn.plus :+ DSL.defm("main")("[Ljava/lang/String;")(
-    Void
-  )(
-    mainCs: _*
-  )
-  val czz = DSL.defc("", "JispCode")(ms: _*)
-  println(Dumper.dump(czz))
+  println(y.get)
 }

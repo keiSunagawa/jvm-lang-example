@@ -4,11 +4,15 @@ import cats.instances.either._
 import cats.instances.tuple._
 import cats.Foldable
 import cats.syntax.either._
+import org.atnos.eff.|=
 
 object DefunCollector {
+  type Result[A] = Either[Error, A]
+  type _result[R] = Result |= R
+
   def collect(
       xs: List[JList]
-  ): Either[InvalidDefun, (List[JList], List[Defun])] = {
+  ): Result[(List[JList], List[Defun])] = {
     def checkArgs(arg: Value): Either[InvalidDefun, FArg] = {
       arg match {
         case JList(Symbol(t) :: Symbol(v) :: Nil) =>
@@ -42,5 +46,6 @@ object DefunCollector {
       .map(Foldable[List].fold(_))
   }
 
-  case class InvalidDefun()
+  sealed trait Error
+  case class InvalidDefun() extends Error
 }
