@@ -1,120 +1,133 @@
 package me.kerfume
 
 import org.antlr.v4.runtime.CommonTokenStream
-import me.kerfume.jisp.antlr.ASTConv
+import me.kerfume.jisp.antlr.NgASTConv
 import me.kerfume.jisp.antlr.JispLexer
 import me.kerfume.jisp.antlr.JispParser
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.tree.ParseTreeWalker
-import me.kerfume.jisp.RuleChecker
-import me.kerfume.jisp.DefunCollector
-import me.kerfume.jisp.TypeInfer
 import me.kerfume.jisp.JispType
-import me.kerfume.jisp.LetCollector
-import me.kerfume.assembly.BuildIn
 import me.kerfume.assembly.Dumper
+import me.kerfume.compiler._
+import me.kerfume.jisp.ruler._
+import cats.syntax.semigroupk._
+import cats.syntax.foldable._
+import me.kerfume.jisp.ruler._
+import me.kerfume.jisp.collector._
+import me.kerfume.jisp.NgAST._
+import me.kerfume.jisp.type_modules._
+import MainHelper._
+import org.atnos.eff._
+import org.atnos.eff.all._
+import org.atnos.eff.syntax.all._
 
 object Main extends App {
+  ng()
 
-  def parse(input: String) = {
-    println("parse start to " + input)
+  def ng(): Unit = {
+    def rule(in: List[JList]): Ruler.Result[List[JList]] = {
+      for {
+        check1 <- ApplyRuler.rule(in).toEither
+        _ <- (DefunRuler.rule(check1) <+> LetRuler.rule(check1)).toEither
+      } yield check1
+    }
 
-    val charStream = CharStreams.fromString(input)
-    val lexer = new JispLexer(charStream)
-    val tokens = new CommonTokenStream(lexer)
-    val parser = new JispParser(tokens)
+    def parse(input: String) = {
+      println("parse start to " + input)
 
-    val converter = new ASTConv()
-    val walker = new ParseTreeWalker();
-    /* Implement listener and use parser */
-    walker.walk(converter, parser.stmts);
-    converter.stmts.reverse
-  }
+      val charStream = CharStreams.fromString(input)
+      val lexer = new JispLexer(charStream)
+      val tokens = new CommonTokenStream(lexer)
+      val parser = new JispParser(tokens)
 
-  val res = parse("""(defun f ((t:num x) (t:num y))
+      val converter = new NgASTConv()
+      val walker = new ParseTreeWalker();
+      /* Implement listener and use parser */
+      walker.walk(converter, parser.stmts);
+      converter.stmts.reverse
+    }
+
+    val res = parse("""(defun f (x y)
                     |   (plus x (plus 1 y)))
                     |(let z (f 1 2))
                     |(f z 1)
                     """.stripMargin)
 
-  import org.atnos.eff._
-  import org.atnos.eff.all._
-  import org.atnos.eff.syntax.all._
-  import cats.syntax.semigroupk._
-  import cats.instances.list._
-  import cats.instances.either._
+    val plus = JispType.FunctionType(
+      JispType.Number :: JispType.Number :: Nil,
+      JispType.Number
+    )
 
-  val plus = JispType.FunctionType(
-    JispType.Number :: JispType.Number :: Nil,
-    JispType.Number
-  )
-  val buildInF = Map("plus" -> plus)
+    def compile[
+        R: Ruler._result: DefunCollector._result: LetCollector._result: TypeInfer._withState: TypeInfer._withError: NgCompiler._withError
+    ] =
+      for {
+        codes <- rule(res).send
+        defunWithStmts <- DefunCollector.collect(codes).send
+        (rowStmts, defuns) = defunWithStmts
+        stmts <- LetCollector.collect(rowStmts).send
+        initial <- get
+        _ <- defuns.traverse_ {
+          DefunTypeInfer.infer(_, initial) >>= {
+            case (sym, ft) =>
+              modify[R, TypeModule.Context] { _.putF(sym, ft) }
+          }
+        }
+        _ <- StatementTypeInfer.infer(stmts)
+        ctx <- get
+        methods <- defuns.traverse { d =>
+          MethodCompiler.compile(d, ctx).send
+        }
+        mainLogic <- StatementCompiler.compile(stmts, ctx)
+        clazz = NgCompiler.buildClass(mainLogic, methods)
+      } yield Dumper.dump(clazz)
 
-  def x[
-      R: RuleChecker._result: DefunCollector._result: LetCollector._result: TypeInfer._result
-  ] =
-    for {
-      _ <- (RuleChecker.checkListHead(res) <+>
-        RuleChecker.checkMetaSymbol(res) <+>
-        RuleChecker.checkDefunSymbol(res) <+>
-        RuleChecker.checkLetSymbol(res)).toEither.send
+    val x = compile[
+      Fx.fx7[
+        Ruler.Result,
+        DefunCollector.Result,
+        LetCollector.Result,
+        TypeInfer.WithState,
+        TypeInfer.WithError,
+        NgCompiler.WithError,
+        Option
+      ]
+    ].evalState(TypeModule.Context.empty.putF(Symbol("plus", null), plus))
+      .runEither[Ruler.Error]
+      .handle
+      .runEither[DefunCollector.Error]
+      .handle
+      .runEither[LetCollector.Error]
+      .handle
+      .runEither[TypeInfer.Error]
+      .handle
+      .runEither[NgCompiler.Error]
+      .handle
+      .runOption
+      .run
+      .get
 
-      collectRes <- (DefunCollector.collect(res)).send
-      (letOrApplies, defs) = collectRes
-      stmts <- LetCollector.collect(letOrApplies).send
-
-      fMap <- defs.traverse { d =>
-        TypeInfer.infer(d, buildInF).map { d.name.value -> _ }
-      }.send
-      fMapFull = buildInF ++ fMap.toMap
-      varMap <- TypeInfer.inferMain(stmts, fMapFull).send
-    } yield {
-      val asmFs = me.kerfume.compiler.Compiler.compile(defs, fMapFull)
-      val mainCs =
-        me.kerfume.compiler.Compiler.compileMain(stmts, varMap, fMapFull)
-      import me.kerfume.assembly._
-      val ms = asmFs :+ BuildIn.plus :+ DSL.defm("main")("[Ljava/lang/String;")(
-        Void
-      )(
-        mainCs: _*
-      )
-      val czz = DSL.defc("", "JispCode")(ms: _*)
-      Dumper.dump(czz)
-    }
-
-  def toOption[E, A, R: _option](eor: Either[E, A]): Eff[R, A] = eor match {
-    case Left(e) =>
-      println(e)
-      none
-    case Right(a) => some(a)
+    println(x)
   }
 
-  type Stack = Fx.fx5[
-    RuleChecker.Result,
-    DefunCollector.Result,
-    LetCollector.Result,
-    TypeInfer.Result,
-    Option
-  ]
-  val y = x[Stack]
-    .runEither[RuleChecker.Error]
-    .flatMap {
-      toOption(_)
-    }
-    .runEither[DefunCollector.Error]
-    .flatMap {
-      toOption(_)
-    }
-    .runEither[LetCollector.Error]
-    .flatMap {
-      toOption(_)
-    }
-    .runEither[TypeInfer.Error]
-    .flatMap {
-      toOption(_)
-    }
-    .runOption
-    .run
+}
 
-  println(y.get)
+object MainHelper {
+  implicit class Handler[E, A, R: _option](
+      val withE: Eff[R, Either[E, A]]
+  ) {
+    def handle: Eff[R, A] = {
+      withE.flatMap { errorHandling(_) }
+    }
+
+    private def errorHandling[R2: _option](
+        eor: Either[E, A]
+    ): Eff[R2, A] =
+      eor match {
+        case Left(e) =>
+          println(e)
+          none
+        case Right(a) => some(a)
+      }
+  }
 }
