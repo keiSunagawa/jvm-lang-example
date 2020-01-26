@@ -9,3 +9,7 @@ grun:
 	mkdir -p ./grammer/me/kerfume/jisp/antlr/
 	mv ./grammer/*.class ./grammer/me/kerfume/jisp/antlr/
 	java -cp "./antlr-4.7-complete.jar:./grammer/" org.antlr.v4.gui.TestRig me.kerfume.jisp.antlr.Jisp stmts -tokens
+.PHONY: compile
+compile:
+	java -jar jasmin.jar test.j
+	java JispCode

@@ -1,6 +1,6 @@
 ## sample code
 ```
-(defun f ((t:num x) (t:num y))
+(defun f (x y)
   (plus x (plus 1 y)))
 
 (let z (f 1 3))

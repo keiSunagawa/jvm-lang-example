@@ -8,6 +8,11 @@ object Core {
     .settings(
       name := "jisp-core",
       scalacOptions ++= Base.commonScalaOptions,
-      libraryDependencies ++= Base.commonLibs ++ antlr
+      addCompilerPlugin(
+        "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full
+      ),
+      libraryDependencies ++= Base.commonLibs ++ antlr ++ Seq(
+        "org.atnos" %% "eff" % "5.5.2"
+      )
     )
 }
