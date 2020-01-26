@@ -10,8 +10,16 @@
     .limit locals 10
     lload 0
     lload 2
-    ladd
+    ladd 
     lreturn
+.end method
+.method public static printN(J)V
+    .limit stack 10
+    .limit locals 10
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    lload 0
+    invokevirtual java/io/PrintStream/println(J)V
+    return
 .end method
 .method public static f(JJ)J
     .limit stack 10
@@ -33,9 +41,6 @@
     lload 0
     ldc2_w 1
     invokestatic JispCode/f(JJ)J
-    lstore 4
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    lload 4
-    invokevirtual java/io/PrintStream/println(J)V
+    invokestatic JispCode/printN(J)V
     return
 .end method

@@ -3,9 +3,8 @@
 (defun f (x y)
   (plus x (plus 1 y)))
 
-(let z (f 1 3))
-
-(prinln z)
+(let z (f 1 2))
+(printN (f z 1))
 ```
 
 ## JVM byte code
@@ -18,16 +17,24 @@
     return
 .end method
 .method public static plus(JJ)J
-    .limit stack 4
-    .limit locals 4
+    .limit stack 10
+    .limit locals 10
     lload 0
     lload 2
-    ladd
+    ladd 
     lreturn
 .end method
+.method public static printN(J)V
+    .limit stack 10
+    .limit locals 10
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    lload 0
+    invokevirtual java/io/PrintStream/println(J)V
+    return
+.end method
 .method public static f(JJ)J
-    .limit stack 6
-    .limit locals 4
+    .limit stack 10
+    .limit locals 10
     lload 0
     ldc2_w 1
     lload 2
@@ -39,12 +46,13 @@
     .limit stack 10
     .limit locals 10
     ldc2_w 1
-    ldc2_w 3
+    ldc2_w 2
     invokestatic JispCode/f(JJ)J
-    lstore 2
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    lload 2
-    invokevirtual java/io/PrintStream/println(J)V
+    lstore 0
+    lload 0
+    ldc2_w 1
+    invokestatic JispCode/f(JJ)J
+    invokestatic JispCode/printN(J)V
     return
 .end method
 ```

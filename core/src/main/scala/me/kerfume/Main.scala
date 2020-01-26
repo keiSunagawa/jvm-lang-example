@@ -20,6 +20,7 @@ import MainHelper._
 import org.atnos.eff._
 import org.atnos.eff.all._
 import org.atnos.eff.syntax.all._
+import java.io.PrintWriter
 
 object Main extends App {
   ng()
@@ -50,13 +51,21 @@ object Main extends App {
     val res = parse("""(defun f (x y)
                     |   (plus x (plus 1 y)))
                     |(let z (f 1 2))
-                    |(f z 1)
+                    |(printN (f z 1))
                     """.stripMargin)
 
     val plus = JispType.FunctionType(
       JispType.Number :: JispType.Number :: Nil,
       JispType.Number
     )
+    val printN = JispType.FunctionType(
+      JispType.Number :: Nil,
+      JispType.Void
+    )
+
+    val buildInFunctions = TypeModule.Context.empty
+      .putF(Symbol("plus", null), plus)
+      .putF(Symbol("printN", null), printN)
 
     def compile[
         R: Ruler._result: DefunCollector._result: LetCollector._result: TypeInfer._withState: TypeInfer._withError: NgCompiler._withError
@@ -92,7 +101,7 @@ object Main extends App {
         NgCompiler.WithError,
         Option
       ]
-    ].evalState(TypeModule.Context.empty.putF(Symbol("plus", null), plus))
+    ].evalState(buildInFunctions)
       .runEither[Ruler.Error]
       .handle
       .runEither[DefunCollector.Error]
@@ -107,7 +116,9 @@ object Main extends App {
       .run
       .get
 
-    println(x)
+    val file = new PrintWriter("./test.j")
+    file.write(x)
+    file.close()
   }
 
 }

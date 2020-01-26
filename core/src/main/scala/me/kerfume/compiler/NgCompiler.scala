@@ -30,7 +30,7 @@ object NgCompiler {
       mainLogic: _*
     )
 
-    val fullDefs = me.kerfume.assembly.BuildIn.plus +: methods :+ main
+    val fullDefs = me.kerfume.assembly.BuildIn.all ++ methods :+ main
     defc("", "JispCode")(fullDefs: _*)
   }
 
